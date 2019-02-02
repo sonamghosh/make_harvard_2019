@@ -10,6 +10,20 @@ class HeartRNN(nn.Module):
     Module contains encoder, LSTM units and decoder
 
     Future version: LSTM AutoEncoder
+
+    Credit:
+    Jinman Park
+    RNN based Time-series Anomaly Detector Model Implemented in Pytorch
+    https://github.com/chickenbestlover/RNN-Time-series-Anomaly-Detection
+    2018
+
+    References:
+
+    Malhotra, Pankaj, et al. "Long short term memory networks for anomaly detection in time series." Proceedings. Presses universitaires de Louvain, 2015.
+
+    Malhotra, Pankaj, et al. "LSTM-based encoder-decoder for multi-sensor anomaly detection." arXiv preprint arXiv:1607.00148 (2016).
+
+    Park, Daehyung, Yuuna Hoshi, and Charles C. Kemp. "A Multimodal Anomaly Detector for Robot-Assisted Feeding Using an LSTM-based Variational Autoencoder." IEEE Robotics and Automation Letters 3.3 (2018): 1544-1551.
     """
     def __init__(self, enc_inp_size, rnn_inp_size, rnn_hid_size,
                  dec_out_size, num_layers, dropout=0.5, tie_weights=False,
