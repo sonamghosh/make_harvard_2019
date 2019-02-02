@@ -107,7 +107,7 @@ class HeartRNN(nn.Module):
 
     def initialize(self, args, feature_dim):
         self.__init__(enc_inp_size=feature_dim,
-                      rnn_inp_size=args.emsize
+                      rnn_inp_size=args.emsize,
                       rnn_hid_size=args.nhid,
                       dec_out_size=feature_dim,
                       num_layers=args.num_layers,

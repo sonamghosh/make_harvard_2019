@@ -5,7 +5,7 @@ import torch.nn as nn
 import preprocessing
 import model
 from torch import optim
-from matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 from pathlib import Path
 from anomaly_detector import fit_norm_distribution_param
 
@@ -69,7 +69,7 @@ torch.manual_seed(args.seed)
 torch.cuda.manual_seed(args.seed)
 
 # Load Data
-TimeseriesData = preprocess_data.PickleDataLoad(data_type=args.data, filename=args.filename,
+TimeseriesData = preprocessing.PickleDataLoad(data_type=args.data, filename=args.filename,
                                                 augment_test_data=args.augment)
 train_dataset = TimeseriesData.batchify(args,TimeseriesData.trainData, args.batch_size)
 test_dataset = TimeseriesData.batchify(args,TimeseriesData.testData, args.eval_batch_size)
@@ -77,14 +77,14 @@ gen_dataset = TimeseriesData.batchify(args,TimeseriesData.testData, 1)
 
 # Build Model
 feature_dim = TimeseriesData.trainData.size(1)
-model = model.RNNPredictor(enc_inp_size=feature_dim,
-                           rnn_inp_size = args.emsize,
-                           rnn_hid_size = args.nhid,
-                           dec_out_size=feature_dim,
-                           num_layers = args.num_layers,
-                           dropout = args.dropout,
-                           tie_weights= args.tied,
-                           res_connection=args.res_connection).to(args.device)
+model = model.HeartRNN(enc_inp_size=feature_dim,
+                       rnn_inp_size = args.emsize,
+                       rnn_hid_size = args.nhid,
+                       dec_out_size=feature_dim,
+                       num_layers = args.num_layers,
+                       dropout = args.dropout,
+                       tie_weights= args.tied,
+                       res_connection=args.res_connection).to(args.device)
 # Solve
 optimizer = optim.Adam(model.parameters(), lr= args.lr,weight_decay=args.weight_decay)
 criterion = nn.MSELoss()
@@ -251,53 +251,53 @@ def evaluate(args, model, test_dataset):
     return total_loss / (nbatch+1)
 
 
-    # Loop over epochs.
-    if args.resume or args.pretrained:
-        print("=> loading checkpoint ")
-        checkpoint = torch.load(Path('save', args.data, 'checkpoint', args.filename).with_suffix('.pth'))
-        args, start_epoch, best_val_loss = model.load_checkpoint(args,checkpoint,feature_dim)
-        optimizer.load_state_dict((checkpoint['optimizer']))
-        del checkpoint
-        epoch = start_epoch
-        print("=> loaded checkpoint")
-    else:
-        epoch = 1
-        start_epoch = 1
-        best_val_loss = 0
-        print("=> Start training from scratch")
-    print('-' * 89)
-    print(args)
-    print('-' * 89)
+# Loop over epochs.
+if args.resume or args.pretrained:
+    print("=> loading checkpoint ")
+    checkpoint = torch.load(Path('save', args.data, 'checkpoint', args.filename).with_suffix('.pth'))
+    args, start_epoch, best_val_loss = model.load_checkpoint(args,checkpoint,feature_dim)
+    optimizer.load_state_dict((checkpoint['optimizer']))
+    del checkpoint
+    epoch = start_epoch
+    print("=> loaded checkpoint")
+else:
+    epoch = 1
+    start_epoch = 1
+    best_val_loss = 0
+    print("=> Start training from scratch")
+print('-' * 89)
+print(args)
+print('-' * 89)
 
-    if not args.pretrained:
-        # At any point you can hit Ctrl + C to break out of training early.
-        try:
-            for epoch in range(start_epoch, args.epochs+1):
+if not args.pretrained:
+    # At any point you can hit Ctrl + C to break out of training early.
+    try:
+        for epoch in range(start_epoch, args.epochs+1):
 
-                epoch_start_time = time.time()
-                train(args,model,train_dataset,epoch)
-                val_loss = evaluate(args,model,test_dataset)
-                print('-' * 89)
-                print('| end of epoch {:3d} | time: {:5.2f}s | valid loss {:5.4f} | '.format(epoch, (time.time() - epoch_start_time),                                                                                        val_loss))
-                print('-' * 89)
-
-                generate_output(args,epoch,model,gen_dataset,startPoint=1500)
-
-                if epoch%args.save_interval==0:
-                    # Save the model if the validation loss is the best we've seen so far.
-                    is_best = val_loss > best_val_loss
-                    best_val_loss = max(val_loss, best_val_loss)
-                    model_dictionary = {'epoch': epoch,
-                                        'best_loss': best_val_loss,
-                                        'state_dict': model.state_dict(),
-                                        'optimizer': optimizer.state_dict(),
-                                        'args':args
-                                        }
-                    model.save_checkpoint(model_dictionary, is_best)
-
-        except KeyboardInterrupt:
+            epoch_start_time = time.time()
+            train(args,model,train_dataset,epoch)
+            val_loss = evaluate(args,model,test_dataset)
             print('-' * 89)
-            print('Exiting from training early')
+            print('| end of epoch {:3d} | time: {:5.2f}s | valid loss {:5.4f} | '.format(epoch, (time.time() - epoch_start_time),                                                                                        val_loss))
+            print('-' * 89)
+
+            generate_output(args,epoch,model,gen_dataset,startPoint=1500)
+
+            if epoch%args.save_interval==0:
+                # Save the model if the validation loss is the best we've seen so far.
+                is_best = val_loss > best_val_loss
+                best_val_loss = max(val_loss, best_val_loss)
+                model_dictionary = {'epoch': epoch,
+                                    'best_loss': best_val_loss,
+                                    'state_dict': model.state_dict(),
+                                    'optimizer': optimizer.state_dict(),
+                                    'args':args
+                                    }
+                model.save_checkpoint(model_dictionary, is_best)
+
+    except KeyboardInterrupt:
+        print('-' * 89)
+        print('Exiting from training early')
 
 
 # Calculate mean and covariance for each channel's prediction errors, and save them with the trained model
@@ -307,7 +307,7 @@ train_dataset = TimeseriesData.batchify(args, TimeseriesData.trainData, bsz=1)
 for channel_idx in range(model.enc_input_size):
     mean, cov = fit_norm_distribution_param(args,model,train_dataset[:TimeseriesData.length],channel_idx)
     means.append(mean), covs.append(cov)
-model_dictionary = {'epoch': max(epoch,start_epoch),
+model_dictionary = {'epoch': max(epoch, start_epoch),
                     'best_loss': best_val_loss,
                     'state_dict': model.state_dict(),
                     'optimizer': optimizer.state_dict(),
