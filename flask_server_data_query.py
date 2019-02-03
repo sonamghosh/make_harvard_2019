@@ -11,4 +11,4 @@ def hello():
 # HTTP GET for last 20 seconds of heart rate data
 @app.route("/getGood")
 def getData():
-    return send_file('output.txt')
+    return send_file('output.txt', as_attachment=True, attachment_filename="output.txt")
